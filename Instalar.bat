@@ -20,7 +20,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-for %%F in ("instalador\saida\Setup_RoboContas_*.exe") do set "SETUP=%%F"
+rem O mais recente primeiro (/o-d): cada geracao tem nome com data e hora
+for /f "delims=" %%F in ('dir /b /o-d "instalador\saida\Setup_RoboContas_*.exe" 2^>nul') do (
+    set "SETUP=instalador\saida\%%F"
+    goto :achou
+)
+:achou
 if not defined SETUP (
     echo Instalador nao encontrado em instalador\saida\
     pause

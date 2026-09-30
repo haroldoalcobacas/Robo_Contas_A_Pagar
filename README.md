@@ -27,7 +27,7 @@ Toda semana alguém abre a caixa de entrada, procura o que é cobrança no meio 
 
 ## Como usar
 
-> 📘 Passo a passo com imagens de cada tela: **[COMO_USAR.md](COMO_USAR.md)**
+> 📘 Passo a passo com imagens de cada tela: **[docs/COMO_USAR.md](docs/COMO_USAR.md)** · Histórico de versões: **[CHANGELOG.md](CHANGELOG.md)**
 
 Duas formas, com duplo clique na pasta do projeto. As duas abrem o mesmo painel e o mesmo ícone.
 
@@ -175,6 +175,9 @@ Contas que já estão na planilha aparecem como `JÁ LANÇADA` e não se repetem
 **Um arquivo com problema não derruba o robô.**
 Cada e-mail é processado dentro de um `try/except`, com uma rede de segurança final para erros inesperados.
 
+**Planilha aberta no Excel é verificada antes, não depois.**
+O Excel trava o arquivo, e o Windows recusa a gravação. Por isso o robô confere *antes* de escanear. Quando alguém clicou em escanear, ele pergunta se pode salvar e fechar a planilha, e as alterações do usuário são mantidas. Quando é o agendador, sem ninguém olhando, ele nunca fecha a planilha de ninguém: registra no log e tenta na próxima execução.
+
 **A caixa real é lida em modo somente leitura.**
 Nada é apagado, movido ou marcado como lido: o robô não interfere em quem usa a caixa.
 
@@ -211,10 +214,24 @@ Requisitos: Python 3.10 ou mais recente, no Windows.
 
 ```bash
 pip install -r requirements.txt
-python main.py             # ícone na bandeja
-python main.py --config    # painel
-python executar.py         # varredura sem tela (o que o agendador chama)
+python main.py                              # ícone na bandeja
+python main.py --config                     # painel
+python main.py --executar                   # varredura sem tela (o que o agendador chama)
+python main.py --executar --sem-relatorio   # só varre, não envia relatório
 ```
+
+### Testes
+
+```bash
+pip install pytest
+python -m pytest
+```
+
+36 testes: os gabaritos dos 3 níveis, a idempotência, as contas pagas, os anexos, a extração (XML com `&`, PDF, corpo), o CNPJ, as fronteiras de status, o relatório "devido", o `.env` com BOM e a planilha aberta no Excel. Rodam numa pasta isolada, com um cofre de senhas separado: nunca tocam nos seus dados.
+
+### Com o Claude Code
+
+O projeto segue o padrão do Claude Code: o [`CLAUDE.md`](CLAUDE.md) descreve comandos, arquitetura, regras e armadilhas, e é lido automaticamente pelo Claude. Em `.claude/skills/` há três skills prontas: **testar**, **gerar-instalador** e **atualizar-ilustracoes**.
 
 ### Linha de comando
 
@@ -228,7 +245,7 @@ RoboContas.exe --desagendar          remove a tarefa agendada
 RoboContas.exe --inicio sim|nao      ícone ao iniciar o Windows
 ```
 
-(Pelo código-fonte, troque `RoboContas.exe` por `python main.py`.)
+(Pelo código-fonte, troque `RoboContas.exe` por `python main.py`. Com `--executar`, acrescente `--sem-relatorio` para só varrer.)
 
 ### Onde ficam os arquivos
 
@@ -243,12 +260,21 @@ No Gmail, use uma **senha de app** (Conta Google > Segurança > Senhas de app), 
 
 ### Gerando o instalador
 
+O instalador é uma **foto do código** no momento em que é gerado: depois de mudar código em `robo/`, `main.py`, `requirements.txt` ou nos e-mails de exemplo, gere de novo antes de enviar. Mudanças só na documentação ou nos testes não exigem.
+
+Duplo clique em **`Instalar.bat`** (gera e abre o instalador) ou, só para gerar:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File instalador\build.ps1
 ```
 
 1. **PyInstaller** gera `instalador\dist\RoboContas\RoboContas.exe`, com Python e bibliotecas embutidos.
-2. **Inno Setup 6** (`winget install JRSoftware.InnoSetup`) gera `instalador\saida\Setup_RoboContas_1.0.0.exe`.
+2. **Inno Setup 6** (`winget install JRSoftware.InnoSetup`) gera o instalador com **nome automático**, com versão, data e hora:
+   `instalador\saida\Setup_RoboContas_1.0.0_20260930-1510.exe`
+
+**Versão:** o único lugar para mudar é `__version__` em `robo/__init__.py`. O `pyproject.toml`, o instalador e o título do painel leem de lá. Aumente a versão (1.0.0 → 1.0.1) quando houver mudança relevante e anote no `CHANGELOG.md`; a data e a hora no nome já diferenciam cada geração.
+
+Quem já tem o robô instalado só precisa executar o novo `Setup` por cima: configuração, senhas, planilha e anexos são mantidos.
 
 ### Atualizando as imagens da documentação
 
@@ -262,36 +288,46 @@ Roda o robô com a base de exemplo numa pasta isolada e recaptura as telas do pa
 
 ```
 .
+├── README.md                # visão geral (este arquivo)
+├── CLAUDE.md                # guia do projeto para o Claude Code
+├── CHANGELOG.md             # histórico de versões
 ├── Usar_sem_instalar.bat    # duplo clique: roda do código-fonte
 ├── Instalar.bat             # duplo clique: gera e abre o instalador
-├── COMO_USAR.md             # guia com imagens
-├── main.py                  # ponto de entrada (vira RoboContas.exe)
-├── app.py                   # painel (tkinter)
-├── executar.py              # execução sem tela (agendador/terminal)
-├── robo/
+├── main.py                  # ponto de entrada único (vira RoboContas.exe)
+├── pyproject.toml           # metadados, dependências e config de testes
+├── requirements.txt         # dependências (usado pelos .bat e pelo build)
+├── .env.example             # modelo de configuração
+├── .claude/
+│   ├── settings.json        # permissões do projeto para o Claude Code
+│   └── skills/              # testar · gerar-instalador · atualizar-ilustracoes
+├── robo/                    # o sistema
+│   ├── painel.py            # painel (tkinter)
+│   ├── bandeja.py           # ícone ao lado do relógio
+│   ├── cli.py               # execução sem tela (agendador/terminal)
 │   ├── config.py            # caminhos, .env e cofre de senhas
 │   ├── fontes.py            # e-mails da pasta ou da caixa IMAP
 │   ├── extratores.py        # NF-e (XML), fatura (PDF), corpo, CNPJ
 │   ├── processador.py       # regras: duplicidade, status, exceções, anexos
 │   ├── planilha.py          # leitura (memória) e gravação do .xlsx
 │   ├── relatorio.py         # relatório consolidado e envio
-│   ├── servico.py           # trava, log em arquivo, estado, execução
-│   ├── bandeja.py           # ícone ao lado do relógio
+│   ├── servico.py           # motor: trava, log em arquivo, estado, execução
 │   ├── sistema.py           # início com o Windows e Agendador de Tarefas
 │   └── conexoes.py          # testes de login IMAP e SMTP
+├── tests/                   # testes automáticos (pytest)
+├── docs/
+│   ├── COMO_USAR.md         # guia com imagens
+│   ├── img/                 # capturas de tela e ícones
+│   ├── exemplos/            # relatório de exemplo (HTML e WhatsApp)
+│   └── gerar_ilustracoes.py # recaptura tudo
 ├── instalador/
 │   ├── build.ps1            # gera o .exe e o instalador
 │   ├── RoboContas.iss       # script do Inno Setup
 │   └── gerar_icone.py
-├── docs/
-│   ├── img/                 # capturas de tela e ícones
-│   ├── exemplos/            # relatório de exemplo (HTML e WhatsApp)
-│   └── gerar_ilustracoes.py # recaptura tudo
-├── historico/
-│   └── robo_nivel1.py       # primeira versão (Nível 1), mantida para estudo
-├── requirements.txt
-├── .env.example
-└── dados/
-    ├── gerar_dados.py       # gera os e-mails de exemplo
-    └── caixa_de_entrada/    # 14 e-mails .eml
+├── dados/
+│   ├── gerar_dados.py       # gera os e-mails de exemplo
+│   └── caixa_de_entrada/    # 14 e-mails .eml
+└── historico/
+    └── robo_nivel1.py       # primeira versão (Nível 1), mantida para estudo
 ```
+
+Fora do Git (locais): `CONTEXT.md` (enunciado do desafio), `docs/notes/` (aulas de estudo), `.env`, `saida/`, `logs/`.

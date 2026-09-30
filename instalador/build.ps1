@@ -35,5 +35,14 @@ if (-not $iscc) {
     Write-Warning "O programa ja esta pronto em instalador\dist\RoboContas\"
     exit 1
 }
-& $iscc "$inst\RoboContas.iss"
-Write-Host "Pronto: $inst\saida\"
+# Versao: unico lugar e robo/__init__.py. Build: data/hora desta geracao.
+$versao = (python -c "import robo; print(robo.__version__)").Trim()
+$build = Get-Date -Format "yyyyMMdd-HHmm"
+& $iscc /Q "/DVersao=$versao" "/DBuild=$build" "$inst\RoboContas.iss"
+if ($LASTEXITCODE -ne 0) { Write-Error "Falha ao gerar o instalador."; exit 1 }
+
+$setup = Get-ChildItem "$inst\saida\Setup_RoboContas_*.exe" |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+Write-Host ""
+Write-Host "Pronto! Versao $versao (build $build):"
+Write-Host "  $($setup.FullName)"

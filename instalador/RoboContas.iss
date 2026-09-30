@@ -1,23 +1,34 @@
 ﻿; Instalador do Robô de Contas a Pagar (Inno Setup 6)
-; Compilar:  instalador\build.ps1   (ou ISCC.exe instalador\RoboContas.iss)
+; Gerar: duplo clique em Instalar.bat, ou instalador\build.ps1
 ;
 ; Instala só para o usuário atual: não pede senha de administrador.
+;
+; Versão e Build chegam do build.ps1 (/DVersao=... /DBuild=...):
+; - Versao vem de robo/__init__.py (__version__), o único lugar para mudar;
+; - Build é a data/hora da geração, e cada instalador sai com nome único.
 
 #define Nome "Robô de Contas a Pagar"
-#define Versao "1.0.0"
+#ifndef Versao
+  #define Versao "0.0.0"
+#endif
+#ifndef Build
+  #define Build "manual"
+#endif
 #define Exe "RoboContas.exe"
 
 [Setup]
 AppId={{5B7E3C1A-9D2F-4E8B-A6C4-2F1D8E0B7C93}
 AppName={#Nome}
 AppVersion={#Versao}
+AppVerName={#Nome} {#Versao} (build {#Build})
+VersionInfoVersion={#Versao}
 AppPublisher=Haroldo Alcobaças
 DefaultDirName={localappdata}\Programs\RoboContas
 DefaultGroupName={#Nome}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=saida
-OutputBaseFilename=Setup_RoboContas_{#Versao}
+OutputBaseFilename=Setup_RoboContas_{#Versao}_{#Build}
 SetupIconFile=robo.ico
 UninstallDisplayIcon={app}\{#Exe}
 Compression=lzma2

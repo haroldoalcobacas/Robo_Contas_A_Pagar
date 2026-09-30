@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robo-contas-a-pagar"
+dynamic = ["version"]   # vem de robo/__init__.py (__version__)
+description = "Robô que lê e-mails de cobrança, gera a planilha de contas a pagar e envia o resumo por e-mail/WhatsApp."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Haroldo Alcobaças" }]
+# Mantenha em sincronia com requirements.txt (usado pelos .bat e pelo build)
+dependencies = [
+    "openpyxl>=3.1",
+    "pypdf>=4.0",
+    "pystray>=0.19",
+    "pillow>=10.0",
+    "keyring>=24.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pyinstaller>=6.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "robo.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 79
+target-version = "py310"
+extend-exclude = ["dados/gerar_dados.py", "historico"]

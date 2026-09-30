@@ -46,7 +46,7 @@ Depois de instalado, o robô também fica no **menu Iniciar**:
 
 ## O ícone ao lado do relógio
 
-![Ícones](docs/img/icones.png)
+![Ícones](img/icones.png)
 
 A cor resume a situação: **verde** = tudo em dia · **amarelo** = algo vence em até 7 dias · **vermelho** = há conta vencida.
 
@@ -80,7 +80,7 @@ Ao terminar uma varredura, o Windows mostra uma notificação com o resultado.
 
 Onde ler os e-mails, onde gravar a planilha e a data usada nos alertas. O botão **Escanear agora** roda o robô e mostra o log ao vivo.
 
-![Aba Executar](docs/img/painel_1_executar.png)
+![Aba Executar](img/painel_1_executar.png)
 
 > Para testes, deixe a data em **20/09/2026** (a data do desafio). No uso real, marque **Usar a data de hoje**.
 
@@ -88,7 +88,7 @@ Onde ler os e-mails, onde gravar a planilha e a data usada nos alertas. O botão
 
 Escolha entre a **pasta local** (e-mails de teste) e a **caixa de e-mail real (IMAP)**. Os campos só são liberados quando a caixa real é escolhida.
 
-![Aba Leitura de e-mail](docs/img/painel_2_leitura_email.png)
+![Aba Leitura de e-mail](img/painel_2_leitura_email.png)
 
 > Gmail: crie uma **senha de app** (Conta Google > Segurança > Senhas de app) e use-a no campo Senha. Depois clique em **Testar conexão**.
 
@@ -96,13 +96,13 @@ Escolha entre a **pasta local** (e-mails de teste) e a **caixa de e-mail real (I
 
 Marque **E-mail** e/ou **WhatsApp**, escolha a frequência e preencha os dados. O botão **Gerar e enviar relatório agora** envia na hora.
 
-![Aba Relatório](docs/img/painel_3_relatorio.png)
+![Aba Relatório](img/painel_3_relatorio.png)
 
 ### Aba Automação
 
 Ícone ao iniciar o Windows e varredura automática (ao ligar o PC e todo dia no horário escolhido). Clique em **Aplicar** para valer.
 
-![Aba Automação](docs/img/painel_4_automacao.png)
+![Aba Automação](img/painel_4_automacao.png)
 
 > Lembre de clicar em **Salvar configurações** (canto inferior direito) depois de mudar qualquer campo.
 
@@ -114,15 +114,15 @@ Marque **E-mail** e/ou **WhatsApp**, escolha a frequência e preencha os dados. 
 
 No topo, o painel com o total a pagar e os subtotais por status; abaixo, uma linha por conta.
 
-![Planilha: Contas a Pagar](docs/img/planilha_contas.png)
+![Planilha: Contas a Pagar](img/planilha_contas.png)
 
 - **Pagou uma conta?** Preencha a coluna **Pago em** (mais à direita) e salve. Na próxima varredura ela vira `PAGA` e sai do total e dos alertas.
 - **Quer ver só um fornecedor?** Use o filtro do título da coluna: o **Total do filtro** mostra a soma do que está visível.
-- Feche a planilha no Excel antes de escanear: o Windows não deixa gravar num arquivo aberto.
+- **Esqueceu a planilha aberta?** Ao escanear, o robô avisa antes de começar e pergunta: **Sim** = ele salva suas alterações, fecha a planilha e segue; **Não** = você fecha e escaneia de novo. (Na varredura agendada ele não fecha nada: só registra no log e tenta na próxima vez.)
 
 ### Aba Resumo
 
-![Planilha: Resumo](docs/img/planilha_resumo.png)
+![Planilha: Resumo](img/planilha_resumo.png)
 
 As abas **Exceções** (arquivos que não deu para ler, com o motivo) e **Log** (o que aconteceu com cada e-mail) completam a planilha.
 
@@ -136,7 +136,7 @@ Com e-mail e/ou WhatsApp configurados na aba **Relatório**, o robô envia o con
 
 Vem com a planilha completa anexada.
 
-<img src="docs/img/relatorio_email.png" width="620" alt="Relatório por e-mail">
+<img src="img/relatorio_email.png" width="620" alt="Relatório por e-mail">
 
 ### Por WhatsApp
 
@@ -170,7 +170,7 @@ Os asteriscos viram **negrito** no WhatsApp.
 | 2 | Clique em **Escanear agora** de novo | 0 novas, 9 já lançadas; a planilha não ganha linhas |
 | 3 | Preencha **Pago em** numa conta, salve, feche o Excel e escaneie | a conta vira PAGA; o total cai |
 | 4 | Mude a data para **27/09/2026** e escaneie | mais contas passam a VENCIDA |
-| 5 | Deixe a planilha aberta no Excel e escaneie | aviso "feche a planilha no Excel" |
+| 5 | Deixe a planilha aberta no Excel, altere uma célula e escaneie | pergunta se pode salvar e fechar; com **Sim**, a planilha fecha, sua alteração fica salva e a varredura roda |
 | 6 | Abra o ícone e passe o mouse | resumo com total e vencidas; ícone vermelho |
 
 Algo diferente do esperado? Veja `logs\robo.log` (forma A) ou `%APPDATA%\RoboContasAPagar\logs\robo.log` (forma B).

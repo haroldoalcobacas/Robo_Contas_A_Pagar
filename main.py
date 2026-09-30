@@ -1,15 +1,15 @@
 """
-Ponto de entrada do Robô de Contas a Pagar (é o que vira RoboContas.exe).
+Ponto de entrada único do Robô de Contas a Pagar (vira RoboContas.exe).
 
-    main.py                    ícone na bandeja (se já estiver aberto,
-                               abre o painel)
-    main.py --config           painel de configurações
-    main.py --executar         varre e envia o relatório se devido
-                               (usado pelo Agendador de Tarefas)
+    main.py                      ícone na bandeja (se já aberto, abre o painel)
+    main.py --config             painel de configurações
+    main.py --executar           varre e envia o relatório se devido
+                                 (usado pelo Agendador de Tarefas)
+    main.py --executar --sem-relatorio   só varre
     main.py --relatorio semanal  varre e envia o relatório agora
-    main.py --agendar 08:00    cria a tarefa agendada
-    main.py --desagendar       remove a tarefa agendada
-    main.py --inicio sim|nao   liga/desliga o ícone ao iniciar o Windows
+    main.py --agendar 08:00      cria a tarefa agendada
+    main.py --desagendar         remove a tarefa agendada
+    main.py --inicio sim|nao     liga/desliga o ícone ao iniciar o Windows
 """
 
 import argparse
@@ -27,20 +27,30 @@ def instancia_unica(nome: str) -> bool:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(prog="RoboContas")
+    p = argparse.ArgumentParser(prog="RoboContas",
+                                description="Robô de Contas a Pagar")
     grupo = p.add_mutually_exclusive_group()
-    grupo.add_argument("--config", action="store_true")
-    grupo.add_argument("--executar", action="store_true")
-    grupo.add_argument("--relatorio", choices=["diario", "semanal", "mensal"])
-    grupo.add_argument("--agendar", metavar="HH:MM")
-    grupo.add_argument("--desagendar", action="store_true")
-    grupo.add_argument("--inicio", choices=["sim", "nao"])
+    grupo.add_argument("--config", action="store_true",
+                       help="abre o painel")
+    grupo.add_argument("--executar", action="store_true",
+                       help="varre sem tela e envia o relatório se devido")
+    grupo.add_argument("--relatorio", choices=["diario", "semanal", "mensal"],
+                       help="varre e envia o relatório agora")
+    grupo.add_argument("--agendar", metavar="HH:MM",
+                       help="cria a tarefa no Agendador do Windows")
+    grupo.add_argument("--desagendar", action="store_true",
+                       help="remove a tarefa agendada")
+    grupo.add_argument("--inicio", choices=["sim", "nao"],
+                       help="ícone ao iniciar o Windows")
+    p.add_argument("--sem-relatorio", action="store_true",
+                   help="com --executar: só varre, não envia relatório")
     args = p.parse_args()
 
     if args.executar or args.relatorio:
-        import executar
-        argv = ["--relatorio", args.relatorio] if args.relatorio else []
-        return executar.main(argv)
+        from robo import cli
+        if args.relatorio:
+            return cli.executar("forcar", args.relatorio)
+        return cli.executar("nao" if args.sem_relatorio else "auto")
 
     from robo import sistema
     if args.agendar:
@@ -56,8 +66,8 @@ def main() -> int:
     if args.config:
         if not instancia_unica("Local\\RoboContasAPagar_Painel"):
             return 0   # painel já aberto
-        import app
-        app.App().mainloop()
+        from robo.painel import App
+        App().mainloop()
         return 0
 
     # Sem argumentos: ícone na bandeja. Se já existe, abre o painel.

@@ -2,7 +2,7 @@
 Configuração do robô: onde ficam os arquivos, e leitura/gravação do .env.
 
 Dois modos:
-- Desenvolvimento (python app.py): tudo fica na pasta do projeto.
+- Desenvolvimento (python main.py): tudo fica na pasta do projeto.
 - Instalado (RoboContas.exe): o programa fica na pasta de instalação,
   que não deve receber gravações; configuração, log e estado vão para
   %APPDATA%\\RoboContasAPagar e a planilha para Documentos\\Contas a Pagar.

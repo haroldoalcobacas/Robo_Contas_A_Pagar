@@ -10,7 +10,7 @@ Quatro abas:
 Configurações vão para o .env; senhas, para o Gerenciador de Credenciais.
 
 Uso:
-    python app.py       (ou main.py --config)
+    python main.py --config
 """
 
 import os
@@ -21,10 +21,10 @@ from datetime import date, datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from robo import config, servico, sistema
-from robo.conexoes import testar_imap, testar_smtp
-from robo.planilha import PlanilhaBloqueada
-from robo.processador import brl
+from . import __version__, config, excel, servico, sistema
+from .conexoes import testar_imap, testar_smtp
+from .planilha import PlanilhaBloqueada
+from .processador import brl
 
 FORMATO_DATA = "%d/%m/%Y"
 
@@ -32,7 +32,7 @@ FORMATO_DATA = "%d/%m/%Y"
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Robô de Contas a Pagar")
+        self.title(f"Bot - Contas a Pagar  (versão {__version__})")
         self.geometry("920x700")
         self.minsize(800, 600)
         self._icone_janela()
@@ -67,7 +67,7 @@ class App(tk.Tk):
     def _icone_janela(self) -> None:
         try:
             from PIL import ImageTk
-            from robo.bandeja import desenhar_icone
+            from .bandeja import desenhar_icone
             self._img_icone = ImageTk.PhotoImage(desenhar_icone("verde", 64))
             self.iconphoto(True, self._img_icone)
         except Exception:
@@ -456,8 +456,40 @@ class App(tk.Tk):
                     relatorio_modo="forcar",
                     frequencia=cfg["RELATORIO_FREQUENCIA"])
 
+    def _liberar_planilha(self, cfg: dict) -> bool:
+        """
+        Antes de escanear: se a planilha estiver aberta no Excel, pergunta
+        se o robô deve salvar e fechar. Devolve True se pode prosseguir.
+        """
+        arquivo = config.arquivo_planilha(cfg)
+        if not excel.planilha_aberta(arquivo):
+            return True
+        nome = arquivo.name
+        if not messagebox.askyesno(
+                "Planilha aberta", excel.TEXTO_PERGUNTA.format(nome=nome),
+                icon="warning"):
+            messagebox.showinfo("Planilha aberta",
+                                excel.TEXTO_FECHE.format(nome=nome))
+            return False
+
+        self.lbl_resumo.config(text="Salvando e fechando a planilha...")
+        self.config(cursor="watch")
+        self.update()
+        try:
+            ok, mensagem = excel.salvar_e_fechar(arquivo)
+        finally:
+            self.config(cursor="")
+            self.lbl_resumo.config(text="")
+        if not ok:
+            messagebox.showerror(
+                "Planilha aberta", f"Não foi possível fechar a planilha: "
+                f"{mensagem}.\n\n" + excel.TEXTO_FECHE.format(nome=nome))
+        return ok
+
     def _rodar(self, cfg: dict, aviso: str, **kwargs) -> None:
         if self.executando:
+            return
+        if not self._liberar_planilha(cfg):
             return
         self._limpar_log()
         self.executando = True
@@ -613,7 +645,3 @@ class App(tk.Tk):
         self._testar("Teste SMTP", testar_smtp, c["SMTP_HOST"],
                      int(c["SMTP_PORTA"]), c["SMTP_USUARIO"],
                      c["SMTP_SENHA"])
-
-
-if __name__ == "__main__":
-    App().mainloop()

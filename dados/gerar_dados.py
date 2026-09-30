@@ -1,8 +1,10 @@
 import os, re, random, email.utils
 from email.message import EmailMessage
 from datetime import datetime, timedelta
+from pathlib import Path
 random.seed(42)
-OUT="/mnt/project-files/desafio-01-contas-a-pagar/dados/caixa_de_entrada"
+OUT=Path(__file__).resolve().parent/"caixa_de_entrada"
+OUT.mkdir(exist_ok=True)
 BASE=datetime(2026,9,1,9,0)
 fornecedores=[
  ("Nuvem Hosting Ltda","12.345.678/0001-90","financeiro@nuvemhosting.com.br","Hospedagem e servidores"),

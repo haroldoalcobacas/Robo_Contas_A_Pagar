@@ -69,8 +69,8 @@ def icones() -> None:
 
 
 def paineis() -> None:
-    import app
-    janela = app.App()
+    from robo.painel import App
+    janela = App()
     janela.geometry("940x720+60+40")
     janela.attributes("-topmost", True)
     janela.update()

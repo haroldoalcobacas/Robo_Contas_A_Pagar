@@ -17,7 +17,7 @@ import time
 import pystray
 from PIL import Image, ImageDraw
 
-from . import config, planilha, servico, sistema
+from . import config, excel, planilha, servico, sistema
 from .relatorio import NOME_FREQ, brl
 
 CORES = {"verde": (46, 160, 67), "amarelo": (230, 170, 0),
@@ -132,6 +132,24 @@ class Bandeja:
         self.icone.stop()
 
     # --- ações do menu -------------------------------------------------
+    @staticmethod
+    def _liberar_planilha(titulo: str) -> bool:
+        """Planilha aberta no Excel? Pergunta se deve salvar e fechar."""
+        arquivo = config.arquivo_planilha(config.carregar())
+        if not excel.planilha_aberta(arquivo):
+            return True
+        nome = arquivo.name
+        if not excel.perguntar_nativo(
+                titulo, excel.TEXTO_PERGUNTA.format(nome=nome)):
+            excel.avisar_nativo(titulo, excel.TEXTO_FECHE.format(nome=nome))
+            return False
+        ok, mensagem = excel.salvar_e_fechar(arquivo)
+        if not ok:
+            excel.avisar_nativo(
+                titulo, f"Não foi possível fechar a planilha: {mensagem}."
+                f"\n\n" + excel.TEXTO_FECHE.format(nome=nome), erro=True)
+        return ok
+
     def _em_segundo_plano(self, titulo: str, **kwargs) -> None:
         if not self.ocupado.acquire(blocking=False):
             self.notificar(titulo, "Já existe uma execução em andamento.")
@@ -139,6 +157,8 @@ class Bandeja:
 
         def tarefa():
             try:
+                if not self._liberar_planilha(titulo):
+                    return
                 self.icone.title = f"{titulo}..."
                 execucao = servico.rodar(log=lambda s: None, **kwargs)
                 res = execucao.resultado

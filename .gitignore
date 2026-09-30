@@ -1,15 +1,14 @@
 # Segredos e configuração local
 .env
+.claude/settings.local.json
 
 # Documentos pessoais de estudo
-context.md
-EXPLICACAO_NIVEL1.md
-EXPLICACAO_NIVEL2.md
+CONTEXT.md
+docs/notes/
 
 # Saídas geradas pelo robô
 saida/
 contas_a_pagar.xlsx
-contas_a_pagar.csv
 anexos/
 *.log
 logs/
@@ -28,6 +27,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
 
 # Editores e sistema
 .vscode/

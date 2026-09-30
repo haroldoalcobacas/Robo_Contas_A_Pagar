@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Callable
 
-from . import config, relatorio
+from . import config, excel, relatorio
 from .fontes import da_pasta, do_imap
+from .planilha import PlanilhaBloqueada
 from .processador import Resultado, processar
 
 if sys.platform == "win32":
@@ -160,6 +161,15 @@ def rodar(cfg: dict | None = None, relatorio_modo: str = "auto",
     with Trava():
         registrar(f"=== Execução iniciada ({datetime.now():%d/%m/%Y %H:%M})"
                   " ===")
+        # Falha já no início, e não depois de processar tudo. O painel e o
+        # ícone perguntam antes se podem salvar e fechar; o agendador (sem
+        # ninguém olhando) nunca fecha a planilha do usuário: só registra.
+        arquivo = config.arquivo_planilha(cfg)
+        if excel.planilha_aberta(arquivo):
+            registrar(f"[ERRO] A planilha {arquivo.name} está aberta no "
+                      "Excel. Nada foi processado; feche-a e escaneie de "
+                      "novo.")
+            raise PlanilhaBloqueada(arquivo)
         emails = buscar_emails(cfg, registrar)
         res = processar(emails, config.arquivo_planilha(cfg),
                         config.data_referencia(cfg),
