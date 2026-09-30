@@ -47,7 +47,7 @@ Name: "{autodesktop}\{#Nome}"; Filename: "{app}\{#Exe}"; Tasks: atalho
 Filename: "{app}\{#Exe}"; Parameters: "--inicio sim"; Tasks: iniciar; Flags: runhidden waituntilterminated
 Filename: "{app}\{#Exe}"; Parameters: "--agendar 08:00"; Tasks: agendar; Flags: runhidden waituntilterminated
 Filename: "{app}\{#Exe}"; Parameters: "--config"; Description: "Abrir o painel para configurar agora"; Flags: postinstall nowait skipifsilent
-Filename: "{app}\{#Exe}"; Description: "Iniciar o ícone do robô"; Flags: postinstall nowait skipifsilent unchecked
+Filename: "{app}\{#Exe}"; Description: "Iniciar o ícone do robô ao lado do relógio"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 ; 1º fecha o ícone da bandeja, que prende os arquivos

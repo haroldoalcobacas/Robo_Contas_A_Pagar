@@ -1,10 +1,14 @@
+<img src="docs/img/icone.png" width="64" align="right" alt="Ícone do robô">
+
 # Robô de Contas a Pagar
 
 **Da caixa de entrada à planilha, sem ninguém abrir anexo.**
 
 Robô em Python que lê uma caixa de e-mails, identifica as cobranças (NF-e em XML, faturas em PDF e cobranças escritas no próprio e-mail), extrai os dados, descarta duplicidades, marca o que está vencido, gera uma planilha de contas a pagar e envia um resumo por e-mail e/ou WhatsApp. Roda sozinho no Windows, com um ícone ao lado do relógio.
 
-> Projeto do Desafio RPA #01. Status: **Níveis 1, 2 e 3 concluídos**, com instalador para Windows. 100% Python, sem n8n.
+> Projeto do Desafio RPA #01. Status: **Níveis 1, 2 e 3 concluídos**, com painel, ícone na bandeja, agendamento e instalador para Windows. 100% Python, sem n8n.
+
+![Painel do robô](docs/img/painel_1_executar.png)
 
 ## O problema
 
@@ -17,69 +21,34 @@ Toda semana alguém abre a caixa de entrada, procura o que é cobrança no meio 
 3. Descarta **duplicidades** (reenvios, "RE:", lembretes de uma fatura já lançada).
 4. Valida o **CNPJ** pelo dígito verificador e marca o que não bate.
 5. Calcula o **status**: `VENCIDA`, `VENCE EM ATÉ 7 DIAS`, `EM DIA` ou `PAGA`.
-6. Grava a planilha (abas **Resumo**, **Contas a Pagar**, **Exceções** e **Log**) e guarda os anexos em `anexos/<fornecedor>/<ano-mês>/`.
+6. Grava a planilha (abas **Contas a Pagar**, **Resumo**, **Exceções** e **Log**) e guarda os anexos em `anexos/<fornecedor>/<ano-mês>/`.
 7. Envia o **relatório consolidado** (diário, semanal ou mensal) por e-mail e/ou WhatsApp.
 8. Registra o destino de **cada** e-mail: `OK`, `JÁ LANÇADA`, `DUPLICADA`, `IGNORADO` ou `EXCEÇÃO`.
 
-```
-[OK        ] 08_Sua_fatura_chegou_vencimento_19_09.eml: Energia Paulista S.A. - Ref. 09/2026 - R$ 742,18
-[OK        ] 10_Lembrete_fatura_em_aberto.eml: TechSoft Licenças Ltda - TS-2026-0917 - R$ 349,00
-[DUPLICADA ] 07_RE_NF_e_1037_Papelaria_Central_ME.eml: Papelaria Central ME - NF-e 1037 - R$ 213,47 (reenvio da mesma cobrança)
-[EXCEÇÃO   ] 14_NF_e_1111_Contabilidade_Silva_Filhos.eml: XML inválido/corrompido
-
-9 contas em aberto | Total a pagar: R$ 8.631,75
-Novas: 9 | Já lançadas: 0 | Duplicidades: 1 | Exceções: 1 | Ignorados: 3
-```
-
 ## Como usar
 
-### Instalado (para quem só quer usar)
+> 📘 Passo a passo com imagens de cada tela: **[COMO_USAR.md](COMO_USAR.md)**
 
-Execute `Setup_RoboContas_1.0.0.exe`. Não precisa de Python nem de senha de administrador. O instalador pergunta se você quer:
+Duas formas, com duplo clique na pasta do projeto. As duas abrem o mesmo painel e o mesmo ícone.
 
-- atalho na área de trabalho;
-- mostrar o ícone do robô ao iniciar o Windows;
-- escanear sozinho ao ligar o PC e todo dia às 08:00.
+| | **Usar sem instalar** | **Instalar** |
+|---|---|---|
+| Arquivo | `Usar_sem_instalar.bat` | `Instalar.bat` |
+| O que faz | roda direto do código-fonte e abre o painel e o ícone | gera o instalador com o código atual e o abre |
+| Precisa de Python | sim (3.10+) | só para gerar o instalador; quem recebe o `Setup.exe` não precisa |
+| Planilha e anexos | `saida\` na pasta do projeto | `Documentos\Contas a Pagar` |
+| Ideal para | testar, estudar, alterar o código | usar no dia a dia |
 
-Depois é só usar o **ícone ao lado do relógio**:
+O instalador não pede senha de administrador e pergunta se você quer atalho na área de trabalho, o ícone ao iniciar o Windows e a varredura automática todo dia às 08:00.
 
-| Ação | Como |
-|---|---|
-| Abrir o painel | clique no ícone |
-| Escanear agora | botão direito > *Escanear agora* |
-| Gerar e enviar relatório | botão direito > *Gerar e enviar relatório* > Diário / Semanal / Mensal |
-| Abrir a planilha ou os anexos | botão direito > *Abrir planilha* / *Abrir pasta de anexos* |
+### O ícone ao lado do relógio
 
-A cor do ícone resume a situação: **verde** (em dia), **amarelo** (vence em até 7 dias), **vermelho** (há conta vencida).
+![Ícones verde, amarelo e vermelho](docs/img/icones.png)
 
-### Pelo código-fonte (desenvolvimento)
+**Verde** = tudo em dia · **amarelo** = algo vence em até 7 dias · **vermelho** = há conta vencida.
+**Clique** abre o painel; **botão direito** mostra o menu: *Escanear agora*, *Gerar e enviar relatório* (Diário / Semanal / Mensal), *Abrir planilha*, *Abrir pasta de anexos* e *Sair*.
 
-Requisitos: Python 3.10 ou mais recente, no Windows.
-
-```bash
-pip install -r requirements.txt
-python main.py             # ícone na bandeja
-python main.py --config    # painel
-python executar.py         # varredura sem tela (o que o agendador chama)
-```
-
-Para testar com os e-mails de exemplo não é preciso configurar nada: por padrão o robô lê `dados/caixa_de_entrada` e os relatórios ficam desligados. A planilha sai em `saida/contas_a_pagar.xlsx`.
-
-### Linha de comando
-
-```
-RoboContas.exe                       ícone na bandeja (se já aberto, abre o painel)
-RoboContas.exe --config              painel
-RoboContas.exe --executar            varre e envia o relatório se estiver devido
-RoboContas.exe --relatorio semanal   varre e envia o relatório agora
-RoboContas.exe --agendar 08:00       cria a tarefa agendada
-RoboContas.exe --desagendar          remove a tarefa agendada
-RoboContas.exe --inicio sim|nao      ícone ao iniciar o Windows
-```
-
-(Pelo código-fonte, troque `RoboContas.exe` por `python main.py`.)
-
-## O painel
+### O painel
 
 | Aba | O que tem |
 |---|---|
@@ -88,26 +57,104 @@ RoboContas.exe --inicio sim|nao      ícone ao iniciar o Windows
 | **Relatório** | E-mail e/ou WhatsApp, frequência, dados SMTP (**Testar conexão**), WhatsApp (CallMeBot), **Gerar e enviar relatório agora** |
 | **Automação** | Ícone ao iniciar o Windows; varredura ao ligar o PC e todo dia no horário escolhido |
 
-Os campos de e-mail e WhatsApp só ficam ativos, e só são exigidos, quando a opção correspondente está marcada.
+Os campos de e-mail e WhatsApp só ficam ativos, e só são exigidos, quando a opção correspondente está marcada. Para testar com os e-mails de exemplo, nada precisa ser configurado.
 
-### Onde ficam os arquivos
+## O que sai do robô
 
-| | Pelo código-fonte | Instalado |
-|---|---|---|
-| Programa | pasta do projeto | `%LOCALAPPDATA%\Programs\RoboContas` |
-| Configuração (`.env`), log, estado | pasta do projeto | `%APPDATA%\RoboContasAPagar` |
-| Planilha e anexos | `saida/` | `Documentos\Contas a Pagar` |
-| Senhas | Gerenciador de Credenciais do Windows (`RoboContasAPagar`) | idem |
+### A planilha
 
-No Gmail, use uma **senha de app** (Conta Google > Segurança > Senhas de app), nunca a senha normal da conta.
+No topo da aba *Contas a Pagar*, um painel com o total a pagar e os subtotais por status; abaixo, uma linha por conta. Os valores do painel são **fórmulas do Excel**: acompanham qualquer edição, e o **Total do filtro** soma só as linhas visíveis ao filtrar a tabela.
 
-### A aba Contas a Pagar
+![Planilha: aba Contas a Pagar](docs/img/planilha_contas.png)
 
-No topo fica um **painel** com o total a pagar e os subtotais por status (vencidas, vencendo em 7 dias, em dia, pagas), além do **Total do filtro**, que soma só as linhas visíveis quando você filtra a tabela (por fornecedor, por exemplo). Os valores são fórmulas do Excel: acompanham qualquer edição feita na tabela. Os títulos da tabela ficam congelados, e o painel continua visível ao rolar.
+Para marcar uma conta como paga, preencha a coluna **Pago em** e salve: na próxima varredura ela vira `PAGA` e sai do total e dos alertas. O robô preserva o que você escreveu.
 
-### Marcando uma conta como paga
+### O relatório
 
-Preencha a coluna **Pago em** na aba *Contas a Pagar* e salve. Na próxima execução a conta vira `PAGA`, sai do total a pagar e dos alertas do relatório. O robô preserva o que você escreveu.
+Por e-mail (com a planilha anexada):
+
+<img src="docs/img/relatorio_email.png" width="620" alt="Relatório por e-mail">
+
+Por WhatsApp ([exemplo em texto](docs/exemplos/relatorio_whatsapp.txt)):
+
+```
+*Contas a pagar - resumo semanal*
+Referência: 20/09/2026
+Total em aberto: *R$ 8.631,75* (9 contas)
+
+*Vencidas: 4 (R$ 3.431,08)*
+- 06/09 | TechSoft Licenças Ltda | R$ 349,00
+- 11/09 | Contabilidade Silva & Filhos | R$ 1.850,00
+- 16/09 | Nuvem Hosting Ltda | R$ 489,90
+- 19/09 | Energia Paulista S.A. | R$ 742,18
+
+*Vencem até 27/09: 2 (R$ 1.413,47)*
+- 21/09 | Papelaria Central ME | R$ 213,47
+- 26/09 | Limpa Bem Serviços | R$ 1.200,00
+```
+
+### O log
+
+```
+[OK        ] 08_Sua_fatura_chegou_vencimento_19_09.eml: Energia Paulista S.A. - Ref. 09/2026 - R$ 742,18
+[OK        ] 10_Lembrete_fatura_em_aberto.eml: TechSoft Licenças Ltda - TS-2026-0917 - R$ 349,00
+[DUPLICADA ] 07_RE_NF_e_1037_Papelaria_Central_ME.eml: Papelaria Central ME - NF-e 1037 - R$ 213,47 (reenvio da mesma cobrança)
+[IGNORADO  ] 13_Poltica_de_frias_atualizada.eml: politica_ferias.pdf: PDF sem valor e vencimento
+[EXCEÇÃO   ] 14_NF_e_1111_Contabilidade_Silva_Filhos.eml: XML inválido/corrompido
+
+9 contas em aberto | Total a pagar: R$ 8.631,75
+Novas: 9 | Já lançadas: 0 | Duplicidades: 1 | Exceções: 1 | Ignorados: 3
+```
+
+## Como funciona
+
+### Visão geral
+
+```mermaid
+flowchart LR
+    subgraph Entradas["Quem aciona"]
+        P[Painel]
+        B[Ícone na bandeja]
+        A[Agendador de Tarefas<br/>ao ligar o PC + diário]
+    end
+    subgraph Motor["Motor (robo/)"]
+        S[servico.rodar<br/>trava · log · estado]
+        F[fontes<br/>pasta .eml ou IMAP]
+        PR[processador<br/>regras]
+        E[extratores<br/>XML · PDF · corpo]
+    end
+    subgraph Saidas["Resultado"]
+        X[(Planilha .xlsx)]
+        N[Anexos por<br/>fornecedor/mês]
+        R[Relatório<br/>e-mail / WhatsApp]
+    end
+    P & B & A --> S
+    S --> F --> PR
+    PR <--> E
+    PR --> X & N
+    S --> R
+    X -. memória: o que já foi lançado .-> PR
+```
+
+Painel, ícone e agendador chamam **o mesmo motor**. A planilha também é a **memória**: antes de processar, o robô lê o que já foi lançado, e por isso rodar de novo não duplica nada.
+
+### O caminho de cada e-mail
+
+```mermaid
+flowchart TD
+    M[E-mail] --> Q{Tem anexo<br/>XML ou PDF?}
+    Q -- sim --> L{Conseguiu ler?}
+    L -- não é cobrança --> I[IGNORADO]
+    L -- arquivo com problema --> EX[EXCEÇÃO<br/>aba Exceções]
+    L -- sim --> K
+    Q -- não --> C{Valor e vencimento<br/>no texto?}
+    C -- não --> I
+    C -- sim --> K{Chave já vista<br/>nesta execução?}
+    K -- sim --> D[DUPLICADA]
+    K -- não --> J{Já está na<br/>planilha?}
+    J -- sim --> JL[JÁ LANÇADA]
+    J -- não --> OK[OK: nova linha<br/>+ anexo guardado]
+```
 
 ## Decisões tomadas
 
@@ -120,7 +167,7 @@ Preencha a coluna **Pago em** na aba *Contas a Pagar* e salve. Na próxima execu
 Quem manda fatura em PDF costuma repetir valor e vencimento no texto. Ler os dois lançaria a mesma conta duas vezes.
 
 **Idempotência: a planilha é a memória do robô.**
-Antes de processar, o robô lê as chaves já gravadas. Contas que já estão lá aparecem como `JÁ LANÇADA` e não se repetem. O status é recalculado a cada execução, e as colunas preenchidas à mão (**Pago em**) são preservadas.
+Contas que já estão na planilha aparecem como `JÁ LANÇADA` e não se repetem. O status é recalculado a cada execução, e as colunas preenchidas à mão (**Pago em**) são preservadas.
 
 **Dois tipos de "não deu", tratados de forma diferente.**
 *Não é cobrança* (política de férias, newsletter) vira `IGNORADO`. *Parece cobrança, mas não deu para ler* (XML corrompido, PDF sem vencimento) vai para a aba **Exceções**, porque alguém precisa olhar.
@@ -156,7 +203,45 @@ O instalador instala só para o usuário atual e cria o início automático e a 
 
 Bônus: os 6 CNPJs dos dados de exemplo são fictícios e o robô os marca como **inválidos** pelo dígito verificador.
 
-## Gerando o instalador
+## Para desenvolvedores
+
+### Pelo código-fonte
+
+Requisitos: Python 3.10 ou mais recente, no Windows.
+
+```bash
+pip install -r requirements.txt
+python main.py             # ícone na bandeja
+python main.py --config    # painel
+python executar.py         # varredura sem tela (o que o agendador chama)
+```
+
+### Linha de comando
+
+```
+RoboContas.exe                       ícone na bandeja (se já aberto, abre o painel)
+RoboContas.exe --config              painel
+RoboContas.exe --executar            varre e envia o relatório se estiver devido
+RoboContas.exe --relatorio semanal   varre e envia o relatório agora
+RoboContas.exe --agendar 08:00       cria a tarefa agendada
+RoboContas.exe --desagendar          remove a tarefa agendada
+RoboContas.exe --inicio sim|nao      ícone ao iniciar o Windows
+```
+
+(Pelo código-fonte, troque `RoboContas.exe` por `python main.py`.)
+
+### Onde ficam os arquivos
+
+| | Pelo código-fonte | Instalado |
+|---|---|---|
+| Programa | pasta do projeto | `%LOCALAPPDATA%\Programs\RoboContas` |
+| Configuração (`.env`), log, estado | pasta do projeto | `%APPDATA%\RoboContasAPagar` |
+| Planilha e anexos | `saida/` | `Documentos\Contas a Pagar` |
+| Senhas | Gerenciador de Credenciais do Windows (`RoboContasAPagar`) | idem |
+
+No Gmail, use uma **senha de app** (Conta Google > Segurança > Senhas de app), nunca a senha normal da conta.
+
+### Gerando o instalador
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File instalador\build.ps1
@@ -165,10 +250,21 @@ powershell -ExecutionPolicy Bypass -File instalador\build.ps1
 1. **PyInstaller** gera `instalador\dist\RoboContas\RoboContas.exe`, com Python e bibliotecas embutidos.
 2. **Inno Setup 6** (`winget install JRSoftware.InnoSetup`) gera `instalador\saida\Setup_RoboContas_1.0.0.exe`.
 
-## Estrutura
+### Atualizando as imagens da documentação
+
+```bash
+python docs/gerar_ilustracoes.py
+```
+
+Roda o robô com a base de exemplo numa pasta isolada e recaptura as telas do painel, a planilha (via Excel), o e-mail do relatório (via Edge) e os ícones.
+
+### Estrutura
 
 ```
 .
+├── Usar_sem_instalar.bat    # duplo clique: roda do código-fonte
+├── Instalar.bat             # duplo clique: gera e abre o instalador
+├── COMO_USAR.md             # guia com imagens
 ├── main.py                  # ponto de entrada (vira RoboContas.exe)
 ├── app.py                   # painel (tkinter)
 ├── executar.py              # execução sem tela (agendador/terminal)
@@ -187,6 +283,10 @@ powershell -ExecutionPolicy Bypass -File instalador\build.ps1
 │   ├── build.ps1            # gera o .exe e o instalador
 │   ├── RoboContas.iss       # script do Inno Setup
 │   └── gerar_icone.py
+├── docs/
+│   ├── img/                 # capturas de tela e ícones
+│   ├── exemplos/            # relatório de exemplo (HTML e WhatsApp)
+│   └── gerar_ilustracoes.py # recaptura tudo
 ├── robo_nivel1.py           # versão do Nível 1, mantida como referência
 ├── requirements.txt
 ├── .env.example
