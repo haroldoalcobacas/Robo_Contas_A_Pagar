@@ -1,0 +1,40 @@
+From: Energia Paulista S.A. <nao-responda@energiapaulista.com.br>
+To: contas@suaempresa.com.br
+Subject: Sua fatura chegou - vencimento 19/09
+Date: Sat, 05 Sep 2026 09:00:00 -0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5446332115853614978=="
+
+--===============5446332115853614978==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Olá!
+
+Sua fatura de 09/2026 está disponível em anexo.
+Valor: R$ 742,18
+Vencimento: 19/09/2026
+
+--===============5446332115853614978==
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="fatura_202609.pdf"
+MIME-Version: 1.0
+
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUg
+ODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAw
+IFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyOTIgPj4Kc3RyZWFtCkJUIC9GMSAxMSBU
+ZiA1MCA3ODAgVGQgMTQgVEwKKEVuZXJnaWEgUGF1bGlzdGEgUy5BLikgJwooQ05QSjogNDUuNjc4
+LjkwMS8wMDAxLTIzKSAnCigpICcKKEZhdHVyYSAvIEJvbGV0byAtIENvbnRhIGRlIGVuZXJnaWEp
+ICcKKFJlZmVyZW5jaWE6IDA5LzIwMjYpICcKKFZlbmNpbWVudG86IDE5LzA5LzIwMjYpICcKKFZh
+bG9yIGRvIGRvY3VtZW50bzogUiQgNzQyLDE4KSAnCihMaW5oYSBkaWdpdGF2ZWw6IDgzNjYwMDAw
+MDA3LTQgNDIxODAxMzgwMDAtMSAwMDAwMDAwMDAwMC0xIDIwMjYwOTE5MDAwLTApICcKRVQKZW5k
+c3RyZWFtCmVuZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFz
+ZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAow
+MDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBu
+IAowMDAwMDAwMjQxIDAwMDAwIG4gCjAwMDAwMDA1ODQgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6
+ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo2NTQKJSVFT0YK
+
+--===============5446332115853614978==--

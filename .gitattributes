@@ -1,0 +1,5 @@
+# Normaliza quebras de linha dos arquivos de texto
+* text=auto
+
+# E-mails de exemplo: preservar os bytes exatamente como foram gerados
+*.eml -text

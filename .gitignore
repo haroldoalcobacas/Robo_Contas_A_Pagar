@@ -1,0 +1,25 @@
+# Segredos e configuração local
+.env
+
+# Documentos pessoais de estudo
+context.md
+EXPLICACAO_NIVEL1.md
+
+# Saídas geradas pelo robô
+contas_a_pagar.xlsx
+contas_a_pagar.csv
+anexos/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editores e sistema
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+~$*.xlsx
