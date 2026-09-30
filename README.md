@@ -8,7 +8,10 @@ Robô em Python que lê uma caixa de e-mails, identifica as cobranças (NF-e em 
 
 > Projeto do Desafio RPA #01. Status: **Níveis 1, 2 e 3 concluídos**, com painel, ícone na bandeja, agendamento e instalador para Windows. 100% Python, sem n8n.
 
-![Painel do robô](docs/img/painel_1_executar.png)
+<p align="center">
+  <img src="docs/img/robo_funcionando.gif" width="560" alt="O robô em funcionamento: caixa de entrada, varredura, classificação dos e-mails, planilha e relatório">
+  <br><sub>Demonstração com os 14 e-mails de exemplo (dados fictícios).</sub>
+</p>
 
 ## O problema
 
@@ -49,6 +52,8 @@ O instalador não pede senha de administrador e pergunta se você quer atalho na
 **Clique** abre o painel; **botão direito** mostra o menu: *Escanear agora*, *Gerar e enviar relatório* (Diário / Semanal / Mensal), *Abrir planilha*, *Abrir pasta de anexos* e *Sair*.
 
 ### O painel
+
+![Painel do robô](docs/img/painel_1_executar.png)
 
 | Aba | O que tem |
 |---|---|
