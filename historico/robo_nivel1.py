@@ -5,8 +5,14 @@ Lê todos os e-mails .eml da pasta de entrada, encontra os que trazem NF-e em
 XML anexado, extrai os dados da nota e gera a planilha contas_a_pagar.xlsx.
 E-mails que não são cobrança são ignorados (e registrados no log do terminal).
 
-Uso:
-    python robo_nivel1.py
+HISTÓRICO: esta é a primeira versão do robô, mantida para estudo (ver a aula
+do Nível 1). O sistema atual fica na pasta robo/ e é iniciado por main.py.
+
+Uso, na raiz do projeto:
+    python historico/robo_nivel1.py
+
+Gera saida/contas_a_pagar_nivel1.xlsx (nome próprio, para não se misturar
+com a planilha do robô atual, que também é a memória dele).
 """
 
 import email
@@ -23,7 +29,7 @@ from openpyxl.styles import Font, PatternFill
 # ---------------------------------------------------------------------------
 # Configuração
 # ---------------------------------------------------------------------------
-PASTA_BASE = Path(__file__).parent
+PASTA_BASE = Path(__file__).parent.parent   # raiz do projeto
 
 
 def carregar_env(caminho: Path) -> None:
@@ -42,7 +48,7 @@ carregar_env(PASTA_BASE / ".env")
 
 PASTA_EMAILS = PASTA_BASE / os.getenv("PASTA_EMAILS",
                                       "dados/caixa_de_entrada")
-ARQUIVO_SAIDA = PASTA_BASE / os.getenv("ARQUIVO_SAIDA", "contas_a_pagar.xlsx")
+ARQUIVO_SAIDA = PASTA_BASE / "saida" / "contas_a_pagar_nivel1.xlsx"
 # Data fixa, para o resultado ser reprodutível
 DATA_REFERENCIA = date.fromisoformat(os.getenv("DATA_REFERENCIA",
                                                "2026-09-20"))
@@ -167,6 +173,7 @@ def gerar_planilha(contas: list[dict], destino: Path) -> None:
     for i, largura in enumerate(larguras):
         ws.column_dimensions[chr(ord("A") + i)].width = largura
 
+    destino.parent.mkdir(parents=True, exist_ok=True)
     wb.save(destino)
 
 

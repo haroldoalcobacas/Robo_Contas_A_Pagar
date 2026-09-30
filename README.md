@@ -287,7 +287,8 @@ Roda o robô com a base de exemplo numa pasta isolada e recaptura as telas do pa
 │   ├── img/                 # capturas de tela e ícones
 │   ├── exemplos/            # relatório de exemplo (HTML e WhatsApp)
 │   └── gerar_ilustracoes.py # recaptura tudo
-├── robo_nivel1.py           # versão do Nível 1, mantida como referência
+├── historico/
+│   └── robo_nivel1.py       # primeira versão (Nível 1), mantida para estudo
 ├── requirements.txt
 ├── .env.example
 └── dados/
