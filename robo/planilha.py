@@ -15,7 +15,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 ABA_CONTAS = "Contas a Pagar"
@@ -24,7 +24,9 @@ VENCIDA = "VENCIDA"
 VENCE_7 = "VENCE EM ATÉ 7 DIAS"
 EM_DIA = "EM DIA"
 SEM_VENC = "SEM VENCIMENTO"
-ORDEM_STATUS = [VENCIDA, VENCE_7, EM_DIA, SEM_VENC]
+PAGA = "PAGA"
+ORDEM_STATUS = [VENCIDA, VENCE_7, EM_DIA, SEM_VENC, PAGA]
+EM_ABERTO = [VENCIDA, VENCE_7, EM_DIA, SEM_VENC]
 
 # (coluna, largura, formato)
 COLUNAS = [
@@ -33,17 +35,20 @@ COLUNAS = [
     ("Dias p/ Vencer", 9, "0"),
     ("Fornecedor", 30, None),
     ("CNPJ", 19, None),
-    ("Tipo", 11, None),
+    ("CNPJ Válido", 8, None),
+    ("Tipo", 13, None),
     ("Documento", 13, None),
     ("Emissão", 12, "DD/MM/YYYY"),
     ("Valor (R$)", 14, '"R$" #,##0.00'),
+    # Preenchida à mão no Excel: a conta vira PAGA e sai dos alertas
+    ("Pago em", 12, "DD/MM/YYYY"),
     ("Linha Digitável", 56, None),
     ("Arquivo de Origem", 44, None),
     ("Lançado em", 12, "DD/MM/YYYY"),
     ("Chave", 40, None),
 ]
 NOMES = [c[0] for c in COLUNAS]
-CAMPOS_DATA = {"Vencimento", "Emissão", "Lançado em"}
+CAMPOS_DATA = {"Vencimento", "Emissão", "Lançado em", "Pago em"}
 
 AZUL = PatternFill("solid", fgColor="305496")
 CORES_STATUS = {
@@ -51,6 +56,7 @@ CORES_STATUS = {
     VENCE_7: PatternFill("solid", fgColor="FFE699"),
     EM_DIA: PatternFill("solid", fgColor="C6EFCE"),
     SEM_VENC: PatternFill("solid", fgColor="D9D9D9"),
+    PAGA: PatternFill("solid", fgColor="BDD7EE"),
 }
 
 
@@ -58,8 +64,10 @@ class PlanilhaBloqueada(Exception):
     """A planilha está aberta em outro programa (ex.: Excel)."""
 
 
-def calcular_status(vencimento: date | None,
-                    referencia: date) -> tuple[str, int | None]:
+def calcular_status(vencimento: date | None, referencia: date,
+                    pago_em=None) -> tuple[str, int | None]:
+    if pago_em not in (None, ""):
+        return PAGA, None
     if vencimento is None:
         return SEM_VENC, None
     dias = (vencimento - referencia).days
@@ -84,12 +92,18 @@ def ler_contas(arquivo: Path) -> list[dict]:
     if ABA_CONTAS not in wb.sheetnames:
         return []
 
-    linhas = wb[ABA_CONTAS].iter_rows(values_only=True)
-    cabecalho = list(next(linhas, []))
+    # A tabela começa abaixo do painel de resumo: a linha de títulos é a
+    # que tem "Status" na coluna A e "Chave" em alguma coluna. (Planilhas
+    # antigas, sem painel, têm os títulos na linha 1 e também funcionam.)
+    cabecalho = None
     contas = []
-    for valores in linhas:
+    for valores in wb[ABA_CONTAS].iter_rows(values_only=True):
+        if cabecalho is None:
+            if valores and valores[0] == "Status" and "Chave" in valores:
+                cabecalho = list(valores)
+            continue
         conta = dict(zip(cabecalho, valores))
-        if conta.get("Status") == "TOTAL" or not conta.get("Chave"):
+        if not conta.get("Chave"):
             continue
         for campo in CAMPOS_DATA:
             if isinstance(conta.get(campo), datetime):
@@ -102,13 +116,16 @@ def ler_contas(arquivo: Path) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Gravação
 # ---------------------------------------------------------------------------
-def _cabecalho(ws, nomes: list[str]) -> None:
+def _cabecalho(ws, nomes: list[str]) -> int:
+    """Linha de títulos azul, congelada. Devolve o número da linha."""
     ws.append(nomes)
-    for celula in ws[1]:
+    linha = ws.max_row
+    for celula in ws[linha]:
         celula.font = Font(bold=True, color="FFFFFF")
         celula.fill = AZUL
         celula.alignment = Alignment(vertical="center", wrap_text=True)
-    ws.freeze_panes = "A2"
+    ws.freeze_panes = f"A{linha + 1}"
+    return linha
 
 
 def _larguras(ws, larguras: list[int]) -> None:
@@ -116,11 +133,74 @@ def _larguras(ws, larguras: list[int]) -> None:
         ws.column_dimensions[get_column_letter(i)].width = largura
 
 
-def _aba_contas(wb: Workbook, contas: list[dict]) -> None:
+def _painel(ws, info: dict, primeira: int, ultima: int) -> None:
+    """
+    Painel de resumo no topo da aba, acima da tabela.
+
+    Os valores são FÓRMULAS sobre a tabela: se alguém preencher "Pago em"
+    ou corrigir um valor no Excel, o painel se atualiza sozinho.
+    "Total do filtro" usa SUBTOTAL, que soma só as linhas visíveis.
+    """
+    col_valor = get_column_letter(NOMES.index("Valor (R$)") + 1)
+    status = f"$A${primeira}:$A${ultima}"
+    valores = f"${col_valor}${primeira}:${col_valor}${ultima}"
+    moeda = '"R$" #,##0.00'
+
+    ws["A1"] = "CONTAS A PAGAR"
+    ws["A1"].font = Font(bold=True, size=16, color="305496")
+    ws["D1"] = (f"Referência: {info['data_referencia']:%d/%m/%Y}   |   "
+                f"Atualizado em {info['gerado_em']:%d/%m/%Y %H:%M}")
+    ws["D1"].font = Font(italic=True, color="666666")
+    ws["D1"].alignment = Alignment(vertical="center")
+
+    linhas = [
+        ("TOTAL A PAGAR", f'=SUMIF({status},"<>{PAGA}",{valores})',
+         f'=COUNTA({status})-COUNTIF({status},"{PAGA}")', AZUL, True),
+        (VENCIDA, f'=SUMIF({status},"{VENCIDA}",{valores})',
+         f'=COUNTIF({status},"{VENCIDA}")', CORES_STATUS[VENCIDA], False),
+        (VENCE_7, f'=SUMIF({status},"{VENCE_7}",{valores})',
+         f'=COUNTIF({status},"{VENCE_7}")', CORES_STATUS[VENCE_7], False),
+        (EM_DIA, f'=SUMIF({status},"{EM_DIA}",{valores})',
+         f'=COUNTIF({status},"{EM_DIA}")', CORES_STATUS[EM_DIA], False),
+        (PAGA, f'=SUMIF({status},"{PAGA}",{valores})',
+         f'=COUNTIF({status},"{PAGA}")', CORES_STATUS[PAGA], False),
+        ("Total do filtro", f"=SUBTOTAL(109,{valores})",
+         f"=SUBTOTAL(103,{status})", None, False),
+    ]
+    borda = Side(style="thin", color="BFBFBF")
+    for i, (rotulo, soma, qtd, cor, destaque) in enumerate(linhas, start=3):
+        ws.merge_cells(start_row=i, start_column=2, end_row=i, end_column=3)
+        ws.cell(i, 1, rotulo)
+        ws.cell(i, 2, soma).number_format = moeda
+        ws.cell(i, 4, qtd).number_format = '0 "conta(s)"'
+        for col in (1, 2, 3, 4):
+            ws.cell(i, col).border = Border(top=borda, bottom=borda,
+                                            left=borda, right=borda)
+        ws.cell(i, 1).font = Font(bold=True,
+                                  color="FFFFFF" if destaque else "000000")
+        ws.cell(i, 2).font = Font(bold=True, size=12 if destaque else 11,
+                                  color="FFFFFF" if destaque else "000000")
+        ws.cell(i, 4).alignment = Alignment(horizontal="left", indent=1)
+        if cor:
+            ws.cell(i, 1).fill = cor
+            if destaque:
+                ws.cell(i, 2).fill = cor
+                ws.cell(i, 3).fill = cor
+        if rotulo == "Total do filtro":
+            ws.cell(i, 1).font = Font(italic=True)
+            ws.cell(i, 5, "soma só as linhas visíveis ao filtrar a tabela")
+            ws.cell(i, 5).font = Font(italic=True, size=9, color="888888")
+
+
+def _aba_contas(wb: Workbook, contas: list[dict], info: dict) -> None:
     ws = wb.active
     ws.title = ABA_CONTAS
-    _cabecalho(ws, NOMES)
     _larguras(ws, [c[1] for c in COLUNAS])
+
+    # Linhas 1-8: painel de resumo | linha 10: títulos | 11 em diante: dados
+    for _ in range(9):
+        ws.append([])
+    linha_titulos = _cabecalho(ws, NOMES)
 
     for conta in contas:
         ws.append([conta.get(nome) for nome in NOMES])
@@ -130,18 +210,16 @@ def _aba_contas(wb: Workbook, contas: list[dict]) -> None:
         for celula, (_, _, formato) in zip(linha, COLUNAS):
             if formato:
                 celula.number_format = formato
+        if conta.get("CNPJ Válido") == "NÃO":
+            linha[NOMES.index("CNPJ Válido")].fill = CORES_STATUS[VENCIDA]
 
-    ultima = ws.max_row
-    col_valor = get_column_letter(NOMES.index("Valor (R$)") + 1)
-    ws.auto_filter.ref = f"A1:{get_column_letter(len(NOMES))}{ultima}"
-    ws.append([])
-    total = [None] * len(NOMES)
-    total[0] = "TOTAL"
-    total[NOMES.index("Valor (R$)")] = f"=SUM({col_valor}2:{col_valor}{ultima})"
-    ws.append(total)
-    for celula in ws[ws.max_row]:
-        celula.font = Font(bold=True)
-    ws[f"{col_valor}{ws.max_row}"].number_format = '"R$" #,##0.00'
+    primeira = linha_titulos + 1
+    # Fórmulas cobrem uma folga de linhas: quem acrescentar contas à mão
+    # logo abaixo da tabela também entra nos totais.
+    ultima = max(ws.max_row, primeira) + 500
+    ws.auto_filter.ref = (f"A{linha_titulos}:"
+                          f"{get_column_letter(len(NOMES))}{ws.max_row}")
+    _painel(ws, info, primeira, ultima)
 
 
 def _aba_resumo(wb: Workbook, contas: list[dict], info: dict) -> None:
@@ -159,13 +237,14 @@ def _aba_resumo(wb: Workbook, contas: list[dict], info: dict) -> None:
 
     for status in ORDEM_STATUS:
         grupo = [c for c in contas if c["Status"] == status]
-        if not grupo and status == SEM_VENC:
+        if not grupo and status in (SEM_VENC, PAGA):
             continue
         ws.append([status, len(grupo),
                    round(sum(c["Valor (R$)"] for c in grupo), 2)])
         ws.cell(ws.max_row, 1).fill = CORES_STATUS[status]
-    ws.append(["TOTAL", len(contas),
-               round(sum(c["Valor (R$)"] for c in contas), 2)])
+    abertas = [c for c in contas if c["Status"] in EM_ABERTO]
+    ws.append(["TOTAL A PAGAR", len(abertas),
+               round(sum(c["Valor (R$)"] for c in abertas), 2)])
     for celula in ws[ws.max_row]:
         celula.font = Font(bold=True)
     for linha in ws.iter_rows(min_row=6, min_col=3, max_col=3):
@@ -199,7 +278,7 @@ def _aba_simples(wb: Workbook, titulo: str, nomes: list[str],
 def salvar(arquivo: Path, contas: list[dict], excecoes: list[dict],
            log: list[dict], info: dict) -> None:
     wb = Workbook()
-    _aba_contas(wb, contas)
+    _aba_contas(wb, contas, info)
     _aba_resumo(wb, contas, info)
     _aba_simples(wb, "Exceções", ["Arquivo", "Anexo", "Motivo"],
                  excecoes, [44, 20, 70])

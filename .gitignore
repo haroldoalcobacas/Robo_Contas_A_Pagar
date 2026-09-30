@@ -12,6 +12,16 @@ contas_a_pagar.xlsx
 contas_a_pagar.csv
 anexos/
 *.log
+logs/
+estado.json
+robo.lock
+
+# Empacotamento (gerados por instalador\build.ps1)
+instalador/build/
+instalador/dist/
+instalador/saida/
+instalador/*.spec
+instalador/robo.ico
 
 # Python
 __pycache__/

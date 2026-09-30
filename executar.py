@@ -1,35 +1,43 @@
 """
-Executa o robô sem tela, usando as configurações do .env.
-Útil para rodar pelo terminal ou pelo Agendador de Tarefas do Windows.
+Executa o robô sem tela, usando as configurações salvas.
+É o que o Agendador de Tarefas chama.
 
 Uso:
-    python executar.py
+    python executar.py                     varre e envia o relatório se devido
+    python executar.py --relatorio semanal varre e envia o relatório agora
+    python executar.py --sem-relatorio     só varre
 """
 
+import argparse
 import sys
 
-from robo import config
 from robo.planilha import PlanilhaBloqueada
-from robo.processador import processar
+from robo.servico import RoboOcupado, rodar
 
 
-def main() -> int:
-    cfg = config.carregar()
-    if cfg["ORIGEM_EMAILS"] == "imap":
-        print("[AVISO] Leitura via IMAP chega no Nível 3. "
-              "Usando a pasta local.")
-    pasta = config.caminho(cfg, "PASTA_EMAILS")
-    if not pasta.is_dir():
-        print(f"[ERRO] Pasta de e-mails não encontrada: {pasta}")
-        return 1
-    saida = config.caminho(cfg, "PASTA_SAIDA") / cfg["NOME_PLANILHA"]
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="Robô de Contas a Pagar")
+    p.add_argument("--relatorio", choices=["diario", "semanal", "mensal"],
+                   help="envia o relatório agora, nesta frequência")
+    p.add_argument("--sem-relatorio", action="store_true",
+                   help="só varre e atualiza a planilha")
+    args = p.parse_args(argv)
+
+    modo = "nao" if args.sem_relatorio else (
+        "forcar" if args.relatorio else "auto")
     try:
-        processar(pasta, saida, config.data_referencia(cfg))
-    except PlanilhaBloqueada:
-        print(f"\n[ERRO] Não foi possível gravar {saida.name}: "
-              "feche a planilha no Excel e rode de novo.")
+        execucao = rodar(relatorio_modo=modo, frequencia=args.relatorio)
+    except RoboOcupado:
+        print("[AVISO] O robô já está em execução. Nada a fazer.")
+        return 0
+    except PlanilhaBloqueada as erro:
+        print(f"\n[ERRO] Não foi possível gravar {erro}: feche a planilha "
+              "no Excel e rode de novo.")
         return 1
-    return 0
+    except Exception as erro:
+        print(f"\n[ERRO] {type(erro).__name__}: {erro}")
+        return 1
+    return 2 if execucao.houve_erro_envio else 0
 
 
 if __name__ == "__main__":

@@ -44,6 +44,27 @@ def formatar_cnpj(cnpj: str) -> str:
     return f"{c[:2]}.{c[2:5]}.{c[5:8]}/{c[8:12]}-{c[12:]}"
 
 
+def cnpj_valido(cnpj: str | None) -> bool | None:
+    """
+    Confere os 2 dígitos verificadores do CNPJ.
+    Devolve None quando não há CNPJ para validar.
+    """
+    c = so_digitos(cnpj or "")
+    if not c:
+        return None
+    if len(c) != 14 or c == c[0] * 14:
+        return False
+
+    def digito(base: str) -> str:
+        pesos = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2][-len(base):]
+        resto = sum(int(n) * p for n, p in zip(base, pesos)) % 11
+        return "0" if resto < 2 else str(11 - resto)
+
+    d1 = digito(c[:12])
+    d2 = digito(c[:12] + d1)
+    return c[12:] == d1 + d2
+
+
 def valor_brasileiro(texto: str) -> float:
     """'1.200,00' -> 1200.0"""
     return float(texto.replace(".", "").replace(",", "."))
@@ -176,6 +197,63 @@ def extrair_pdf(conteudo: bytes) -> dict:
         Fornecedor=fornecedor,
         CNPJ=formatar_cnpj(cnpj) if cnpj else None,
         Documento=f"Ref. {ref}" if ref else None,
+        Vencimento=vencimento,
+        **{"Valor (R$)": valor},
+        **{"Linha Digitável": linha},
+        Chave=chave,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cobrança só no corpo do e-mail (sem anexo)
+# ---------------------------------------------------------------------------
+PADROES_CORPO = {
+    "valor": PADROES_PDF["valor"],
+    "vencimento": PADROES_PDF["vencimento"],
+    "linha": PADROES_PDF["linha"],
+}
+# Identificador da fatura: "fatura TS-2026-0917", "fatura nº 12345/2026".
+# Exige ao menos um separador ou dígito para não capturar palavras soltas.
+PADRAO_DOC_CORPO = (r"(?i:fatura|boleto|cobran[çc]a)\s+(?:(?i:n[º°o.]?)\s*)?"
+                    r"([A-Z0-9]+(?:[-./][A-Z0-9]+)+|\d{3,})")
+
+
+def extrair_corpo(texto: str, remetente_nome: str,
+                  remetente_email: str) -> dict:
+    """
+    Procura uma cobrança no texto do e-mail. Só é chamada quando o e-mail
+    não trouxe anexo de cobrança, para não lançar duas vezes a mesma fatura
+    (quem manda PDF costuma repetir valor e vencimento no corpo).
+
+    O corpo é "conversa", então aqui somos conservadores: sem valor E
+    vencimento, não é cobrança (NaoECobranca, nunca ErroExtracao).
+    """
+    achados = {}
+    for campo, padrao in PADROES_CORPO.items():
+        m = re.search(padrao, texto, re.IGNORECASE)
+        achados[campo] = m.group(1).strip() if m else None
+    if not (achados["valor"] and achados["vencimento"]):
+        raise NaoECobranca("corpo sem valor e vencimento")
+
+    m = re.search(PADRAO_DOC_CORPO, texto)
+    documento = m.group(1) if m else None
+    valor = valor_brasileiro(achados["valor"])
+    vencimento = datetime.strptime(achados["vencimento"], "%d/%m/%Y").date()
+    linha = achados["linha"]
+    fornecedor = remetente_nome or remetente_email
+
+    if linha:
+        chave = f"BOLETO-{so_digitos(linha)}"
+    elif documento:
+        chave = f"CORPO-{remetente_email.lower()}-{documento}"
+    else:
+        chave = (f"CORPO-{remetente_email.lower()}-"
+                 f"{vencimento.isoformat()}-{valor:.2f}")
+
+    return _conta(
+        Tipo="Corpo e-mail",
+        Fornecedor=fornecedor,
+        Documento=documento,
         Vencimento=vencimento,
         **{"Valor (R$)": valor},
         **{"Linha Digitável": linha},

@@ -1,15 +1,16 @@
 """
-Tela de abertura do Robô de Contas a Pagar.
+Painel do Robô de Contas a Pagar.
 
-Três abas:
+Quatro abas:
 - Executar: pastas de entrada/saída, data de referência e botão de execução.
 - Leitura de e-mail: origem (pasta ou IMAP) e credenciais da caixa.
-- Relatório: envio por e-mail e/ou WhatsApp, e a frequência.
+- Relatório: envio por e-mail e/ou WhatsApp, frequência e envio imediato.
+- Automação: ícone ao iniciar o Windows e varredura agendada.
 
-Tudo é salvo no .env (fora do Git).
+Configurações vão para o .env; senhas, para o Gerenciador de Credenciais.
 
 Uso:
-    python app.py
+    python app.py       (ou main.py --config)
 """
 
 import os
@@ -20,10 +21,10 @@ from datetime import date, datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from robo import config
+from robo import config, servico, sistema
 from robo.conexoes import testar_imap, testar_smtp
 from robo.planilha import PlanilhaBloqueada
-from robo.processador import brl, processar
+from robo.processador import brl
 
 FORMATO_DATA = "%d/%m/%Y"
 
@@ -32,8 +33,9 @@ class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Robô de Contas a Pagar")
-        self.geometry("900x680")
-        self.minsize(780, 580)
+        self.geometry("920x700")
+        self.minsize(800, 600)
+        self._icone_janela()
 
         cfg = config.carregar()
         # Uma variável de tela para cada chave do .env
@@ -49,14 +51,27 @@ class App(tk.Tk):
             value=cfg["RELATORIO_EMAIL"] == "sim")
         self.var_rel_whats = tk.BooleanVar(
             value=cfg["RELATORIO_WHATSAPP"] == "sim")
+        self.var_anexos = tk.BooleanVar(value=cfg["SALVAR_ANEXOS"] == "sim")
+        self.var_inicio = tk.BooleanVar(
+            value=sistema.inicio_automatico_ativo())
+        self.var_agenda = tk.BooleanVar(value=sistema.agendamento_ativo())
 
-        # Comunicação entre a thread do robô e a tela
+        # Comunicação entre as threads de trabalho e a tela
         self.fila: queue.Queue = queue.Queue()
         self.executando = False
 
         self._estilos()
         self._montar()
         self.after(100, self._ler_fila)
+
+    def _icone_janela(self) -> None:
+        try:
+            from PIL import ImageTk
+            from robo.bandeja import desenhar_icone
+            self._img_icone = ImageTk.PhotoImage(desenhar_icone("verde", 64))
+            self.iconphoto(True, self._img_icone)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Montagem da tela
@@ -84,6 +99,7 @@ class App(tk.Tk):
         abas.add(self._aba_executar(abas), text="  Executar  ")
         abas.add(self._aba_leitura(abas), text="  Leitura de e-mail  ")
         abas.add(self._aba_relatorio(abas), text="  Relatório  ")
+        abas.add(self._aba_automacao(abas), text="  Automação  ")
 
         rodape = ttk.Frame(self, padding=(16, 0, 16, 12))
         rodape.pack(fill="x")
@@ -110,7 +126,7 @@ class App(tk.Tk):
         def escolher():
             atual = config.caminho(self._cfg_da_tela(), chave)
             pasta = filedialog.askdirectory(
-                initialdir=atual if atual.exists() else config.RAIZ)
+                initialdir=atual if atual.exists() else config.DADOS_APP)
             if pasta:
                 self.v[chave].set(self._relativo(Path(pasta)))
         ttk.Button(pai, text="Procurar...", command=escolher).grid(
@@ -128,6 +144,10 @@ class App(tk.Tk):
         self._campo(arquivos, 1, "Pasta de saída", "PASTA_SAIDA")
         self._botao_pasta(arquivos, 1, "PASTA_SAIDA")
         self._campo(arquivos, 2, "Nome da planilha", "NOME_PLANILHA")
+        ttk.Checkbutton(
+            arquivos, variable=self.var_anexos,
+            text="Guardar os anexos em <saída>/anexos/<fornecedor>/<ano-mês>"
+        ).grid(row=3, column=1, sticky="w", pady=(4, 0))
 
         data = ttk.LabelFrame(aba, text="Data de referência para os alertas",
                               padding=10)
@@ -143,7 +163,7 @@ class App(tk.Tk):
 
         botoes = ttk.Frame(aba)
         botoes.pack(fill="x", pady=(0, 8))
-        self.btn_executar = ttk.Button(botoes, text="▶  Executar robô",
+        self.btn_executar = ttk.Button(botoes, text="▶  Escanear agora",
                                        style="Destaque.TButton",
                                        command=self.executar)
         self.btn_executar.pack(side="left", ipadx=10, ipady=3)
@@ -168,7 +188,8 @@ class App(tk.Tk):
         origem = ttk.LabelFrame(aba, text="De onde ler os e-mails",
                                 padding=10)
         origem.pack(fill="x")
-        for texto, valor in [("Pasta local com arquivos .eml", "pasta"),
+        for texto, valor in [("Pasta local com arquivos .eml (testes)",
+                              "pasta"),
                              ("Caixa de e-mail real (IMAP)", "imap")]:
             ttk.Radiobutton(origem, text=texto, value=valor,
                             variable=self.v["ORIGEM_EMAILS"],
@@ -186,16 +207,18 @@ class App(tk.Tk):
         self._mostrar_senha(f, 3, ent_senha)
         self._campo(f, 4, "Pasta da caixa", "IMAP_PASTA", largura=20,
                     dica="INBOX = caixa de entrada")
+        self._campo(f, 5, "Ler os últimos", "IMAP_DIAS", largura=6,
+                    dica="dias")
         ttk.Button(f, text="Testar conexão",
-                   command=self.testar_imap).grid(row=5, column=1,
+                   command=self.testar_imap).grid(row=6, column=1,
                                                   sticky="w", pady=(8, 0))
 
         ttk.Label(aba, style="Dica.TLabel", justify="left", text=(
             "Gmail: ative a verificação em duas etapas e gere uma "
             "\"senha de app\" (Conta Google > Segurança > Senhas de app).\n"
             "Use essa senha de 16 letras aqui, nunca a senha normal da "
-            "conta.\n\nA leitura direta da caixa entra no Nível 3. Até lá, "
-            "o robô usa a pasta local e este teste só confere o login."
+            "conta.\n\nA caixa é lida em modo somente leitura: nada é "
+            "apagado, movido ou marcado como lido."
         )).pack(anchor="w")
         self._alternar_imap()
         return aba
@@ -251,12 +274,50 @@ class App(tk.Tk):
                               largura=20, senha=True)
         self._mostrar_senha(f, 1, ent_key)
 
-        ttk.Label(aba, style="Dica.TLabel", justify="left", text=(
+        rodape = ttk.Frame(aba)
+        rodape.pack(fill="x", pady=(8, 0))
+        ttk.Label(rodape, style="Dica.TLabel", justify="left", text=(
             "CallMeBot é gratuito e envia mensagens para o seu próprio "
-            "WhatsApp. A API key é obtida em callmebot.com.\n"
-            "O envio automático do relatório entra no Nível 3."
-        )).pack(anchor="w", pady=(8, 0))
+            "WhatsApp.\nA API key é obtida em callmebot.com. "
+            "No envio automático, o relatório sai uma vez por dia/semana/mês."
+        )).pack(side="left", anchor="w")
+        self.btn_relatorio = ttk.Button(
+            rodape, text="Gerar e enviar relatório agora",
+            command=self.enviar_relatorio)
+        self.btn_relatorio.pack(side="right")
         self._alternar_canais()
+        return aba
+
+    # --- Aba 4: Automação ---------------------------------------------
+    def _aba_automacao(self, pai) -> ttk.Frame:
+        aba = ttk.Frame(pai, padding=12)
+
+        frm = ttk.LabelFrame(aba, text="Rodar sozinho", padding=10)
+        frm.pack(fill="x")
+        ttk.Checkbutton(
+            frm, variable=self.var_inicio,
+            text="Mostrar o ícone do robô ao lado do relógio quando o "
+                 "Windows iniciar").grid(row=0, column=0, columnspan=3,
+                                         sticky="w", pady=3)
+        ttk.Checkbutton(
+            frm, variable=self.var_agenda,
+            text="Escanear sozinho ao ligar o computador e todo dia às"
+        ).grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Entry(frm, textvariable=self.v["AGENDA_HORA"], width=6).grid(
+            row=1, column=1, sticky="w", padx=4)
+        ttk.Label(frm, text="HH:MM", style="Dica.TLabel").grid(
+            row=1, column=2, sticky="w")
+        ttk.Button(frm, text="Aplicar", command=self.aplicar_automacao).grid(
+            row=2, column=0, sticky="w", pady=(10, 0))
+
+        ttk.Label(aba, style="Dica.TLabel", justify="left", text=(
+            "A varredura agendada usa o Agendador de Tarefas do Windows: "
+            "funciona mesmo com este painel e o ícone fechados.\n"
+            "Se o computador estiver desligado no horário, ela roda assim "
+            "que ele ligar. O relatório é enviado quando estiver devido "
+            "(conforme a frequência).\n\n"
+            f"Log das execuções: {config.PASTA_LOGS / 'robo.log'}"
+        )).pack(anchor="w", pady=8)
         return aba
 
     def _mostrar_senha(self, pai, linha, entrada) -> None:
@@ -296,19 +357,20 @@ class App(tk.Tk):
     # ------------------------------------------------------------------
     @staticmethod
     def _relativo(pasta: Path) -> str:
-        """Guarda caminhos dentro do projeto como relativos (portáveis)."""
+        """Guarda caminhos dentro da pasta de dados como relativos."""
         try:
-            return pasta.resolve().relative_to(config.RAIZ).as_posix()
+            return pasta.resolve().relative_to(config.DADOS_APP).as_posix()
         except ValueError:
             return str(pasta)
 
     def _cfg_da_tela(self) -> dict[str, str]:
         cfg = {k: var.get().strip() for k, var in self.v.items()}
         # Senhas não levam strip: espaço pode fazer parte delas
-        for k in ("IMAP_SENHA", "SMTP_SENHA"):
+        for k in config.SEGREDOS:
             cfg[k] = self.v[k].get()
         cfg["RELATORIO_EMAIL"] = "sim" if self.var_rel_email.get() else "nao"
         cfg["RELATORIO_WHATSAPP"] = "sim" if self.var_rel_whats.get() else "nao"
+        cfg["SALVAR_ANEXOS"] = "sim" if self.var_anexos.get() else "nao"
         if self.var_hoje.get():
             cfg["DATA_REFERENCIA"] = ""
         else:
@@ -320,26 +382,48 @@ class App(tk.Tk):
                 cfg["DATA_REFERENCIA"] = "invalida"
         return cfg
 
-    def _validar(self, cfg: dict[str, str]) -> list[str]:
+    def _erros_execucao(self, cfg: dict[str, str]) -> list[str]:
         erros = []
         if cfg["DATA_REFERENCIA"] == "invalida":
             erros.append("Data de referência inválida (use DD/MM/AAAA).")
-        for chave, nome in [("IMAP_PORTA", "IMAP"), ("SMTP_PORTA", "SMTP")]:
-            if cfg[chave] and not cfg[chave].isdigit():
-                erros.append(f"Porta {nome} deve ser um número.")
         if not cfg["NOME_PLANILHA"].lower().endswith(".xlsx"):
             erros.append("O nome da planilha deve terminar em .xlsx.")
-        if cfg["RELATORIO_EMAIL"] == "sim" and not cfg["EMAIL_DESTINATARIOS"]:
-            erros.append("Informe ao menos um destinatário do relatório.")
+        for chave, nome in [("IMAP_PORTA", "Porta IMAP"),
+                            ("IMAP_DIAS", "Dias de leitura")]:
+            if cfg[chave] and not cfg[chave].isdigit():
+                erros.append(f"{nome} deve ser um número.")
+        if cfg["ORIGEM_EMAILS"] == "imap" and not (
+                cfg["IMAP_HOST"] and cfg["IMAP_USUARIO"]
+                and cfg["IMAP_SENHA"]):
+            erros.append("Caixa IMAP: informe servidor, usuário e senha.")
+        return erros
+
+    def _erros_relatorio(self, cfg: dict[str, str]) -> list[str]:
+        erros = []
+        if cfg["SMTP_PORTA"] and not cfg["SMTP_PORTA"].isdigit():
+            erros.append("Porta SMTP deve ser um número.")
+        if cfg["RELATORIO_EMAIL"] == "sim" and not (
+                cfg["SMTP_USUARIO"] and cfg["SMTP_SENHA"]
+                and cfg["EMAIL_DESTINATARIOS"]):
+            erros.append("E-mail: informe usuário, senha e destinatários.")
         if cfg["RELATORIO_WHATSAPP"] == "sim" and not (
                 cfg["WHATSAPP_NUMERO"].isdigit() and cfg["WHATSAPP_APIKEY"]):
             erros.append("WhatsApp: informe o número (só dígitos, com DDI) "
                          "e a API key.")
         return erros
 
+    def _hora_valida(self, hora: str) -> bool:
+        try:
+            datetime.strptime(hora, "%H:%M")
+            return True
+        except ValueError:
+            return False
+
     def salvar(self) -> bool:
         cfg = self._cfg_da_tela()
-        erros = self._validar(cfg)
+        erros = self._erros_execucao(cfg) + self._erros_relatorio(cfg)
+        if not self._hora_valida(cfg["AGENDA_HORA"]):
+            erros.append("Horário da automação inválido (use HH:MM).")
         if erros:
             messagebox.showwarning("Verifique as configurações",
                                    "\n".join(erros))
@@ -353,39 +437,49 @@ class App(tk.Tk):
     # Execução do robô (em thread, para a tela não congelar)
     # ------------------------------------------------------------------
     def executar(self) -> None:
-        if self.executando:
-            return
         cfg = self._cfg_da_tela()
-        erros = [e for e in self._validar(cfg)
-                 if "relatório" not in e and "WhatsApp" not in e]
+        erros = self._erros_execucao(cfg)
         if erros:
             messagebox.showwarning("Não é possível executar", "\n".join(erros))
             return
-        pasta = config.caminho(cfg, "PASTA_EMAILS")
-        if not pasta.is_dir():
-            messagebox.showerror("Pasta não encontrada", str(pasta))
-            return
-        saida = config.caminho(cfg, "PASTA_SAIDA") / cfg["NOME_PLANILHA"]
-        data_ref = config.data_referencia(cfg)
+        self._rodar(cfg, "Escaneando...", relatorio_modo="nao")
 
+    def enviar_relatorio(self) -> None:
+        cfg = self._cfg_da_tela()
+        erros = self._erros_execucao(cfg) + self._erros_relatorio(cfg)
+        if not (self.var_rel_email.get() or self.var_rel_whats.get()):
+            erros.append("Marque e-mail e/ou WhatsApp.")
+        if erros:
+            messagebox.showwarning("Não é possível enviar", "\n".join(erros))
+            return
+        self._rodar(cfg, "Escaneando e enviando relatório...",
+                    relatorio_modo="forcar",
+                    frequencia=cfg["RELATORIO_FREQUENCIA"])
+
+    def _rodar(self, cfg: dict, aviso: str, **kwargs) -> None:
+        if self.executando:
+            return
         self._limpar_log()
-        if cfg["ORIGEM_EMAILS"] == "imap":
-            self._escrever("[AVISO] Leitura via IMAP chega no Nível 3. "
-                           "Usando a pasta local.\n")
         self.executando = True
         self.btn_executar.state(["disabled"])
-        self.lbl_resumo.config(text="Executando...")
+        self.btn_relatorio.state(["disabled"])
+        self.lbl_resumo.config(text=aviso)
 
         def tarefa():
             try:
-                res = processar(pasta, saida, data_ref,
-                                log=lambda s: self.fila.put(("log", s)))
-                self.fila.put(("fim", res))
+                execucao = servico.rodar(
+                    cfg, log=lambda s: self.fila.put(("log", s)), **kwargs)
+                self.fila.put(("fim", execucao))
+            except servico.RoboOcupado:
+                self.fila.put(("erro", "O robô já está em execução (pelo "
+                               "ícone ou pelo agendador). Tente em "
+                               "instantes."))
             except PlanilhaBloqueada:
-                self.fila.put(("erro", f"Não foi possível gravar "
-                               f"{saida.name}.\nFeche a planilha no Excel "
-                               "e rode de novo."))
+                self.fila.put(("erro", "Não foi possível gravar a "
+                               "planilha.\nFeche-a no Excel e rode de "
+                               "novo."))
             except Exception as erro:
+                servico.logger().exception("erro no painel")
                 self.fila.put(("erro", f"{type(erro).__name__}: {erro}"))
 
         threading.Thread(target=tarefa, daemon=True).start()
@@ -412,16 +506,22 @@ class App(tk.Tk):
             pass
         self.after(100, self._ler_fila)
 
-    def _fim_execucao(self, res) -> None:
+    def _fim_execucao(self, execucao) -> None:
         self.executando = False
         self.btn_executar.state(["!disabled"])
-        if res is None:
+        self.btn_relatorio.state(["!disabled"])
+        if execucao is None:
             return
-        vencidas = res.por_status("VENCIDA")
+        res = execucao.resultado
         self.lbl_resumo.config(text=(
-            f"{len(res.contas)} contas  |  Total {brl(res.total)}  |  "
-            f"{len(vencidas)} vencidas  |  {len(res.novas)} novas  |  "
-            f"{len(res.excecoes)} exceções"))
+            f"{len(res.abertas)} em aberto  |  A pagar {brl(res.total)}  |  "
+            f"{len(res.por_status('VENCIDA'))} vencidas  |  "
+            f"{len(res.novas)} novas  |  {len(res.excecoes)} exceções"))
+        if execucao.envios:
+            titulo = ("Relatório com problemas" if execucao.houve_erro_envio
+                      else "Relatório enviado")
+            (messagebox.showwarning if execucao.houve_erro_envio
+             else messagebox.showinfo)(titulo, "\n".join(execucao.envios))
 
     def _escrever(self, texto: str) -> None:
         self.txt_log.config(state="normal")
@@ -435,18 +535,47 @@ class App(tk.Tk):
         self.txt_log.config(state="disabled")
 
     def abrir_planilha(self) -> None:
-        cfg = self._cfg_da_tela()
-        arquivo = config.caminho(cfg, "PASTA_SAIDA") / cfg["NOME_PLANILHA"]
+        arquivo = config.arquivo_planilha(self._cfg_da_tela())
         if arquivo.exists():
             os.startfile(arquivo)
         else:
             messagebox.showinfo("Planilha", "A planilha ainda não foi "
-                                "gerada. Clique em Executar robô.")
+                                "gerada. Clique em Escanear agora.")
 
     def abrir_pasta_saida(self) -> None:
         pasta = config.caminho(self._cfg_da_tela(), "PASTA_SAIDA")
         pasta.mkdir(parents=True, exist_ok=True)
         os.startfile(pasta)
+
+    # ------------------------------------------------------------------
+    # Automação (registro do Windows + Agendador de Tarefas)
+    # ------------------------------------------------------------------
+    def aplicar_automacao(self) -> None:
+        hora = self.v["AGENDA_HORA"].get().strip()
+        if self.var_agenda.get() and not self._hora_valida(hora):
+            messagebox.showwarning("Automação", "Horário inválido "
+                                   "(use HH:MM).")
+            return
+        try:
+            sistema.definir_inicio_automatico(self.var_inicio.get())
+            if self.var_agenda.get():
+                sistema.agendar(hora)
+            else:
+                sistema.desagendar()
+        except Exception as erro:
+            messagebox.showerror("Automação", f"Não foi possível aplicar:"
+                                 f"\n{erro}")
+            return
+        self.salvar()
+        partes = [
+            "Ícone ao iniciar o Windows: "
+            + ("ligado" if sistema.inicio_automatico_ativo() else
+               "desligado"),
+            "Varredura agendada: "
+            + (f"todo dia às {hora} e ao ligar o PC"
+               if sistema.agendamento_ativo() else "desligada"),
+        ]
+        messagebox.showinfo("Automação", "\n".join(partes))
 
     # ------------------------------------------------------------------
     # Testes de conexão (em thread: podem demorar até o timeout)
