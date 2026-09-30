@@ -4,8 +4,10 @@
 # Documentos pessoais de estudo
 context.md
 EXPLICACAO_NIVEL1.md
+EXPLICACAO_NIVEL2.md
 
 # Saídas geradas pelo robô
+saida/
 contas_a_pagar.xlsx
 contas_a_pagar.csv
 anexos/
